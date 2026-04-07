@@ -4,12 +4,13 @@ import { jsonResponse } from '../utils/response';
 
 export async function handleOpenWeatherCurrent(
   url: URL,
-  env: Env
+  env: Env,
+  corsHeaders: Record<string, string>
 ): Promise<Response> {
   const city = url.searchParams.get('city');
 
   if (!city) {
-    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400);
+    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400, undefined, corsHeaders);
   }
 
   try {
@@ -23,25 +24,27 @@ export async function handleOpenWeatherCurrent(
         'PROVIDER_ERROR',
         data.message || 'Failed to fetch weather data',
         response.status,
-        'openweather'
+        'openweather',
+        corsHeaders
       );
     }
 
-    return jsonResponse(data);
+    return jsonResponse(data, 200, corsHeaders);
   } catch (error) {
     console.error('OpenWeather API error:', error);
-    return errorResponse('FETCH_ERROR', 'Failed to fetch from OpenWeather', 502);
+    return errorResponse('FETCH_ERROR', 'Failed to fetch from OpenWeather', 502, undefined, corsHeaders);
   }
 }
 
 export async function handleOpenWeatherForecast(
   url: URL,
-  env: Env
+  env: Env,
+  corsHeaders: Record<string, string>
 ): Promise<Response> {
   const city = url.searchParams.get('city');
 
   if (!city) {
-    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400);
+    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400, undefined, corsHeaders);
   }
 
   try {
@@ -55,13 +58,14 @@ export async function handleOpenWeatherForecast(
         'PROVIDER_ERROR',
         data.message || 'Failed to fetch forecast data',
         response.status,
-        'openweather'
+        'openweather',
+        corsHeaders
       );
     }
 
-    return jsonResponse(data);
+    return jsonResponse(data, 200, corsHeaders);
   } catch (error) {
     console.error('OpenWeather Forecast API error:', error);
-    return errorResponse('FETCH_ERROR', 'Failed to fetch from OpenWeather', 502);
+    return errorResponse('FETCH_ERROR', 'Failed to fetch from OpenWeather', 502, undefined, corsHeaders);
   }
 }

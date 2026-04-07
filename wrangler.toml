@@ -8,7 +8,9 @@ workers_dev = true
 # 개발 환경 변수 (로컬 테스트용)
 [vars]
 ENVIRONMENT = "development"
+ALLOWED_ORIGINS = "*"  # 프로덕션에서는 실제 도메인으로 변경: "https://yourdomain.com"
 
 # Secrets는 wrangler secret put으로 설정
 # OPENWEATHER_API_KEY
 # WEATHERAPI_API_KEY
+# PROXY_API_KEY

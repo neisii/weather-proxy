@@ -4,12 +4,13 @@ import { jsonResponse } from '../utils/response';
 
 export async function handleWeatherAPICurrent(
   url: URL,
-  env: Env
+  env: Env,
+  corsHeaders: Record<string, string>
 ): Promise<Response> {
   const city = url.searchParams.get('city');
 
   if (!city) {
-    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400);
+    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400, undefined, corsHeaders);
   }
 
   try {
@@ -23,25 +24,27 @@ export async function handleWeatherAPICurrent(
         'PROVIDER_ERROR',
         data.error?.message || 'Failed to fetch weather data',
         response.status,
-        'weatherapi'
+        'weatherapi',
+        corsHeaders
       );
     }
 
-    return jsonResponse(data);
+    return jsonResponse(data, 200, corsHeaders);
   } catch (error) {
     console.error('WeatherAPI error:', error);
-    return errorResponse('FETCH_ERROR', 'Failed to fetch from WeatherAPI', 502);
+    return errorResponse('FETCH_ERROR', 'Failed to fetch from WeatherAPI', 502, undefined, corsHeaders);
   }
 }
 
 export async function handleWeatherAPIForecast(
   url: URL,
-  env: Env
+  env: Env,
+  corsHeaders: Record<string, string>
 ): Promise<Response> {
   const city = url.searchParams.get('city');
 
   if (!city) {
-    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400);
+    return errorResponse('MISSING_PARAMETER', 'city parameter is required', 400, undefined, corsHeaders);
   }
 
   try {
@@ -55,13 +58,14 @@ export async function handleWeatherAPIForecast(
         'PROVIDER_ERROR',
         data.error?.message || 'Failed to fetch forecast data',
         response.status,
-        'weatherapi'
+        'weatherapi',
+        corsHeaders
       );
     }
 
-    return jsonResponse(data);
+    return jsonResponse(data, 200, corsHeaders);
   } catch (error) {
     console.error('WeatherAPI Forecast error:', error);
-    return errorResponse('FETCH_ERROR', 'Failed to fetch from WeatherAPI', 502);
+    return errorResponse('FETCH_ERROR', 'Failed to fetch from WeatherAPI', 502, undefined, corsHeaders);
   }
 }

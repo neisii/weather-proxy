@@ -1,4 +1,4 @@
-import { corsHeaders } from './cors';
+import { getCorsHeaders } from './cors';
 
 export interface ErrorResponse {
   error: {
@@ -12,7 +12,8 @@ export function errorResponse(
   code: string,
   message: string,
   status: number,
-  provider?: string
+  provider?: string,
+  corsHeaders?: Record<string, string>
 ): Response {
   const body: ErrorResponse = {
     error: {
@@ -26,7 +27,7 @@ export function errorResponse(
     status,
     headers: {
       'Content-Type': 'application/json',
-      ...corsHeaders,
+      ...(corsHeaders ?? {}),
     },
   });
 }

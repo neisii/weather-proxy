@@ -75,11 +75,11 @@
 
     <div class="endpoint">
         <h3>🌤️ OpenWeatherMap - Current Weather</h3>
-        <div class="url">https://weather-proxy.neisii.workers.dev/api/openweather/current?city=Seoul</div>
-        <button onclick="testAPI('openweather-current', 'https://weather-proxy.neisii.workers.dev/api/openweather/current?city=Seoul')">
+        <div class="url">http://localhost:8787/api/openweather/current?city=Seoul</div>
+        <button onclick="testAPI('openweather-current', 'http://localhost:8787/api/openweather/current?city=Seoul')">
             테스트 실행
         </button>
-        <button onclick="testAPI('openweather-current', 'https://weather-proxy.neisii.workers.dev/api/openweather/current?city=Busan')">
+        <button onclick="testAPI('openweather-current', 'http://localhost:8787/api/openweather/current?city=Busan')">
             부산 날씨
         </button>
         <div id="openweather-current-status"></div>
@@ -88,8 +88,8 @@
 
     <div class="endpoint">
         <h3>🌤️ OpenWeatherMap - Forecast</h3>
-        <div class="url">https://weather-proxy.neisii.workers.dev/api/openweather/forecast?city=Seoul</div>
-        <button onclick="testAPI('openweather-forecast', 'https://weather-proxy.neisii.workers.dev/api/openweather/forecast?city=Seoul')">
+        <div class="url">http://localhost:8787/api/openweather/forecast?city=Seoul</div>
+        <button onclick="testAPI('openweather-forecast', 'http://localhost:8787/api/openweather/forecast?city=Seoul')">
             테스트 실행
         </button>
         <div id="openweather-forecast-status"></div>
@@ -98,11 +98,11 @@
 
     <div class="endpoint">
         <h3>🌦️ WeatherAPI - Current Weather</h3>
-        <div class="url">https://weather-proxy.neisii.workers.dev/api/weatherapi/current?city=Seoul</div>
-        <button onclick="testAPI('weatherapi-current', 'https://weather-proxy.neisii.workers.dev/api/weatherapi/current?city=Seoul')">
+        <div class="url">http://localhost:8787/api/weatherapi/current?city=Seoul</div>
+        <button onclick="testAPI('weatherapi-current', 'http://localhost:8787/api/weatherapi/current?city=Seoul')">
             테스트 실행
         </button>
-        <button onclick="testAPI('weatherapi-current', 'https://weather-proxy.neisii.workers.dev/api/weatherapi/current?city=Jeju')">
+        <button onclick="testAPI('weatherapi-current', 'http://localhost:8787/api/weatherapi/current?city=Jeju')">
             제주 날씨
         </button>
         <div id="weatherapi-current-status"></div>
@@ -111,8 +111,8 @@
 
     <div class="endpoint">
         <h3>🌦️ WeatherAPI - Forecast</h3>
-        <div class="url">https://weather-proxy.neisii.workers.dev/api/weatherapi/forecast?city=Seoul</div>
-        <button onclick="testAPI('weatherapi-forecast', 'https://weather-proxy.neisii.workers.dev/api/weatherapi/forecast?city=Seoul')">
+        <div class="url">http://localhost:8787/api/weatherapi/forecast?city=Seoul</div>
+        <button onclick="testAPI('weatherapi-forecast', 'http://localhost:8787/api/weatherapi/forecast?city=Seoul')">
             테스트 실행
         </button>
         <div id="weatherapi-forecast-status"></div>
@@ -121,11 +121,11 @@
 
     <div class="endpoint">
         <h3>🌍 Open-Meteo - Location Based</h3>
-        <div class="url">https://weather-proxy.neisii.workers.dev/api/openmeteo?lat=37.5683&lon=126.9778</div>
-        <button onclick="testAPI('openmeteo', 'https://weather-proxy.neisii.workers.dev/api/openmeteo?lat=37.5683&lon=126.9778')">
+        <div class="url">http://localhost:8787/api/openmeteo?lat=37.5683&lon=126.9778</div>
+        <button onclick="testAPI('openmeteo', 'http://localhost:8787/api/openmeteo?lat=37.5683&lon=126.9778')">
             서울 (좌표)
         </button>
-        <button onclick="testAPI('openmeteo', 'https://weather-proxy.neisii.workers.dev/api/openmeteo?lat=35.1796&lon=129.0756')">
+        <button onclick="testAPI('openmeteo', 'http://localhost:8787/api/openmeteo?lat=35.1796&lon=129.0756')">
             부산 (좌표)
         </button>
         <div id="openmeteo-status"></div>
@@ -133,6 +133,9 @@
     </div>
 
     <script>
+        // Set your PROXY_API_KEY here for local testing
+        const API_KEY = 'your-proxy-api-key';
+
         async function testAPI(id, url) {
             const statusEl = document.getElementById(`${id}-status`);
             const resultEl = document.getElementById(`${id}-result`);
@@ -143,7 +146,9 @@
             const startTime = performance.now();
 
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
                 const endTime = performance.now();
                 const duration = Math.round(endTime - startTime);
 
