@@ -1,0 +1,14 @@
+name = "weather-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-10-30"
+
+# Workers 설정
+workers_dev = true
+
+# 개발 환경 변수 (로컬 테스트용)
+[vars]
+ENVIRONMENT = "development"
+
+# Secrets는 wrangler secret put으로 설정
+# OPENWEATHER_API_KEY
+# WEATHERAPI_API_KEY

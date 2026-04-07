@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Proxy Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 {
+            color: #4ec9b0;
+        }
+        .endpoint {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .endpoint h3 {
+            color: #569cd6;
+            margin-top: 0;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        .url {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            color: #ce9178;
+            word-break: break-all;
+        }
+        pre {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #d4d4d4;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.success { background: #4caf50; color: white; }
+        .status.error { background: #f44336; color: white; }
+        .status.loading { background: #ff9800; color: white; }
+    </style>
+</head>
+<body>
+    <h1>☁️ Weather Proxy Test</h1>
+    <p>Cloudflare Workers 프록시 테스트 페이지</p>
+
+    <div class="endpoint">
+        <h3>🌤️ OpenWeatherMap - Current Weather</h3>
+        <div class="url">https://weather-proxy.neisii.workers.dev/api/openweather/current?city=Seoul</div>
+        <button onclick="testAPI('openweather-current', 'https://weather-proxy.neisii.workers.dev/api/openweather/current?city=Seoul')">
+            테스트 실행
+        </button>
+        <button onclick="testAPI('openweather-current', 'https://weather-proxy.neisii.workers.dev/api/openweather/current?city=Busan')">
+            부산 날씨
+        </button>
+        <div id="openweather-current-status"></div>
+        <pre id="openweather-current-result"></pre>
+    </div>
+
+    <div class="endpoint">
+        <h3>🌤️ OpenWeatherMap - Forecast</h3>
+        <div class="url">https://weather-proxy.neisii.workers.dev/api/openweather/forecast?city=Seoul</div>
+        <button onclick="testAPI('openweather-forecast', 'https://weather-proxy.neisii.workers.dev/api/openweather/forecast?city=Seoul')">
+            테스트 실행
+        </button>
+        <div id="openweather-forecast-status"></div>
+        <pre id="openweather-forecast-result"></pre>
+    </div>
+
+    <div class="endpoint">
+        <h3>🌦️ WeatherAPI - Current Weather</h3>
+        <div class="url">https://weather-proxy.neisii.workers.dev/api/weatherapi/current?city=Seoul</div>
+        <button onclick="testAPI('weatherapi-current', 'https://weather-proxy.neisii.workers.dev/api/weatherapi/current?city=Seoul')">
+            테스트 실행
+        </button>
+        <button onclick="testAPI('weatherapi-current', 'https://weather-proxy.neisii.workers.dev/api/weatherapi/current?city=Jeju')">
+            제주 날씨
+        </button>
+        <div id="weatherapi-current-status"></div>
+        <pre id="weatherapi-current-result"></pre>
+    </div>
+
+    <div class="endpoint">
+        <h3>🌦️ WeatherAPI - Forecast</h3>
+        <div class="url">https://weather-proxy.neisii.workers.dev/api/weatherapi/forecast?city=Seoul</div>
+        <button onclick="testAPI('weatherapi-forecast', 'https://weather-proxy.neisii.workers.dev/api/weatherapi/forecast?city=Seoul')">
+            테스트 실행
+        </button>
+        <div id="weatherapi-forecast-status"></div>
+        <pre id="weatherapi-forecast-result"></pre>
+    </div>
+
+    <div class="endpoint">
+        <h3>🌍 Open-Meteo - Location Based</h3>
+        <div class="url">https://weather-proxy.neisii.workers.dev/api/openmeteo?lat=37.5683&lon=126.9778</div>
+        <button onclick="testAPI('openmeteo', 'https://weather-proxy.neisii.workers.dev/api/openmeteo?lat=37.5683&lon=126.9778')">
+            서울 (좌표)
+        </button>
+        <button onclick="testAPI('openmeteo', 'https://weather-proxy.neisii.workers.dev/api/openmeteo?lat=35.1796&lon=129.0756')">
+            부산 (좌표)
+        </button>
+        <div id="openmeteo-status"></div>
+        <pre id="openmeteo-result"></pre>
+    </div>
+
+    <script>
+        async function testAPI(id, url) {
+            const statusEl = document.getElementById(`${id}-status`);
+            const resultEl = document.getElementById(`${id}-result`);
+
+            statusEl.innerHTML = '<span class="status loading">로딩 중...</span>';
+            resultEl.textContent = '';
+
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch(url);
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusEl.innerHTML = `<span class="status success">✓ 성공 (${duration}ms)</span>`;
+                    resultEl.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    statusEl.innerHTML = `<span class="status error">✗ 에러 ${response.status}</span>`;
+                    resultEl.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+                statusEl.innerHTML = `<span class="status error">✗ 네트워크 에러 (${duration}ms)</span>`;
+                resultEl.textContent = error.message;
+            }
+        }
+    </script>
+</body>
+</html>
