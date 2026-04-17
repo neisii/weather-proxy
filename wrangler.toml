@@ -8,7 +8,7 @@ workers_dev = true
 # 개발 환경 변수 (로컬 테스트용)
 [vars]
 # ENVIRONMENT = "development"
-ALLOWED_ORIGINS = "https://cycling-advisor.onrender.com,https://11108fad.cycling-adviser.pages.dev,https://deploy-cloudflare-pages.cycling-adviser.pages.dev,https://cycling-adviser.forwise.me"  # 프로덕션에서는 실제 도메인으로 변경: "https://yourdomain.com"
+ALLOWED_ORIGINS = "https://cycling-advisor.onrender.com,https://cycling-adviser.pages.dev,https://deploy-cloudflare-pages.cycling-adviser.pages.dev,https://cycling-adviser.forwise.me"  # 프로덕션에서는 실제 도메인으로 변경: "https://yourdomain.com"
 
 # Secrets는 wrangler secret put으로 설정
 # OPENWEATHER_API_KEY
