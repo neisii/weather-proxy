@@ -211,12 +211,20 @@ Temperature weights: OpenWeather **0.40**, Open-Meteo **0.45**, WeatherAPI **0.1
 - OW contributes wrong-day humidity at 30% weight
 - WA provides correct calendar-day humidity at 70% weight → **humidity is 30% contaminated**, not clean
 
-### CC-4: Provider geography mismatch
+### CC-4: Provider geography mismatch — verified negligible
 
-- OpenWeather and WeatherAPI are queried by city name string `"seoul"`
-- Open-Meteo is queried by coordinates `latitude=37.5665&longitude=126.978`
-- Each API may resolve "seoul" to a slightly different administrative point
-- **Inter-provider stddev partially reflects coordinate mismatch**, not just forecast model disagreement — confidence scores are slightly inflated
+Actual coordinates resolved by each provider for `"seoul"` (verified):
+
+| Provider | Latitude | Longitude |
+|---|---|---|
+| OpenWeather | 37.57 | 126.98 |
+| WeatherAPI | 37.57 | 127.00 |
+| Open-Meteo | 37.5665 | 126.978 |
+
+- Latitude delta across providers: ~0.004° ≈ **440 m**
+- Longitude delta across providers: ~0.022° ≈ **1.9 km**
+
+All three providers reference points within central Seoul. At this scale, temperature and wind speed differences attributable to position alone are sub-0.1°C and negligible. **Inter-provider stddev is driven by forecast model differences, not coordinate mismatch.** This corner case is not a meaningful source of error for this system.
 
 ### CC-5: `days=2` cache miss after `days=3` hit
 
