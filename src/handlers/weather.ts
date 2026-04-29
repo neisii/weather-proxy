@@ -66,7 +66,7 @@ type WeatherCondition =
   | "haze"
   | "extreme";
 
-interface NormalizedWeather {
+export interface NormalizedWeather {
   temp: number;
   feels_like: number;
   temp_max: number;
@@ -84,13 +84,13 @@ interface NormalizedWeather {
 
 type ProviderId = "openweather" | "weatherapi" | "openmeteo";
 
-interface ProviderResult {
+export interface ProviderResult {
   provider: ProviderId;
   data: NormalizedWeather | null;
   error: string | null;
 }
 
-interface AggregatedWeather {
+export interface AggregatedWeather {
   weather: NormalizedWeather;
   confidence: { temp: number; wind: number; humidity: number; overall: number };
   providers_used: string[];
@@ -243,7 +243,7 @@ function normalizeOpenWeatherCurrent(raw: unknown): NormalizedWeather {
   };
 }
 
-function normalizeOpenWeatherForecast(raw: unknown, dayIndex: number): NormalizedWeather {
+export function normalizeOpenWeatherForecast(raw: unknown, targetDate: string): NormalizedWeather | null {
   const r = raw as {
     list: Array<{
       dt: number;
@@ -255,27 +255,11 @@ function normalizeOpenWeatherForecast(raw: unknown, dayIndex: number): Normalize
       pop?: number;
     }>;
   };
-  const dayStart = dayIndex * 8;
-  const dayItems = r.list.slice(dayStart, dayStart + 8);
-  if (dayItems.length === 0) {
-    const item = r.list[0] ?? r.list[0];
-    const icon = item?.weather[0]?.icon ?? "";
-    return {
-      temp: item?.main.temp ?? 20,
-      feels_like: item?.main.feels_like ?? 18,
-      temp_max: item?.main.temp_max ?? 22,
-      temp_min: item?.main.temp_min ?? 18,
-      humidity: item?.main.humidity ?? 60,
-      pressure: item?.main.pressure ?? 1013,
-      wind_speed: item?.wind.speed ?? 3,
-      wind_deg: item?.wind.deg ?? 0,
-      condition: OW_ICON_MAP[icon] ?? "cloudy",
-      precip_mm: 0,
-      precip_prob: 0,
-      uv_index: null,
-      visibility: null,
-    };
-  }
+  // KST_OFFSET_SEC を加算して UTC epoch を KST 日付に変換し、targetDate と一致するスロットだけ抽出
+  const dayItems = r.list.filter(
+    (item) => new Date((item.dt + KST_OFFSET_SEC) * 1000).toISOString().split("T")[0] === targetDate
+  );
+  if (dayItems.length === 0) return null;
   const temps = dayItems.map((i) => i.main.temp);
   const mainItem = dayItems[Math.floor(dayItems.length / 2)] ?? dayItems[0];
   const icon = mainItem?.weather[0]?.icon ?? "";
@@ -332,10 +316,11 @@ function normalizeWeatherAPICurrent(raw: unknown): NormalizedWeather {
   };
 }
 
-function normalizeWeatherAPIForecast(raw: unknown, dayIndex: number): NormalizedWeather {
+export function normalizeWeatherAPIForecast(raw: unknown, targetDate: string): NormalizedWeather | null {
   const r = raw as {
     forecast: {
       forecastday: Array<{
+        date: string;
         day: {
           maxtemp_c: number;
           mintemp_c: number;
@@ -351,14 +336,8 @@ function normalizeWeatherAPIForecast(raw: unknown, dayIndex: number): Normalized
       }>;
     };
   };
-  const day = r.forecast.forecastday[dayIndex];
-  if (!day) {
-    return {
-      temp: 20, feels_like: 18, temp_max: 22, temp_min: 18, humidity: 60, pressure: 1013,
-      wind_speed: 3, wind_deg: 0, condition: "cloudy", precip_mm: 0, precip_prob: 0,
-      uv_index: null, visibility: null,
-    };
-  }
+  const day = r.forecast.forecastday.find((d) => d.date === targetDate);
+  if (!day) return null;
   const code = day.day.condition.code;
   return {
     temp: day.day.avgtemp_c,
@@ -412,7 +391,7 @@ function normalizeOpenMeteoCurrent(raw: unknown): NormalizedWeather {
   };
 }
 
-function normalizeOpenMeteoForecast(raw: unknown, dayIndex: number): NormalizedWeather {
+export function normalizeOpenMeteoForecast(raw: unknown, targetDate: string): NormalizedWeather | null {
   const r = raw as {
     daily: {
       time: string[];
@@ -428,14 +407,8 @@ function normalizeOpenMeteoForecast(raw: unknown, dayIndex: number): NormalizedW
     };
   };
   const d = r.daily;
-  const i = dayIndex;
-  if (!d.time[i]) {
-    return {
-      temp: 20, feels_like: 18, temp_max: 22, temp_min: 18, humidity: 60, pressure: 1013,
-      wind_speed: 3, wind_deg: 0, condition: "cloudy", precip_mm: 0, precip_prob: 0,
-      uv_index: null, visibility: null,
-    };
-  }
+  const i = d.time.findIndex((t) => t === targetDate);
+  if (i === -1) return null;
   const tmax = d.temperature_2m_max[i] ?? 20;
   const tmin = d.temperature_2m_min[i] ?? 15;
   const wmo = d.weather_code[i] ?? 0;
@@ -500,23 +473,23 @@ async function fetchOpenMeteoCurrent(city: City): Promise<NormalizedWeather> {
   return normalizeOpenMeteoCurrent(data);
 }
 
-async function fetchOpenWeatherForecast(city: City, env: Env): Promise<NormalizedWeather[]> {
+async function fetchOpenWeatherForecast(city: City, env: Env, targetDates: string[]): Promise<(NormalizedWeather | null)[]> {
   const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city.id)}&appid=${env.OPENWEATHER_API_KEY}&units=metric&lang=kr`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`OpenWeather forecast ${res.status}`);
   const data = await res.json();
-  return [0, 1, 2].map((i) => normalizeOpenWeatherForecast(data, i));
+  return targetDates.map((date) => normalizeOpenWeatherForecast(data, date));
 }
 
-async function fetchWeatherAPIForecast(city: City, env: Env): Promise<NormalizedWeather[]> {
+async function fetchWeatherAPIForecast(city: City, env: Env, targetDates: string[]): Promise<(NormalizedWeather | null)[]> {
   const url = `https://api.weatherapi.com/v1/forecast.json?key=${env.WEATHERAPI_API_KEY}&q=${encodeURIComponent(city.id)}&days=3&aqi=no`;
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`WeatherAPI forecast ${res.status}`);
   const data = await res.json();
-  return [0, 1, 2].map((i) => normalizeWeatherAPIForecast(data, i));
+  return targetDates.map((date) => normalizeWeatherAPIForecast(data, date));
 }
 
-async function fetchOpenMeteoForecast(city: City): Promise<NormalizedWeather[]> {
+async function fetchOpenMeteoForecast(city: City, targetDates: string[]): Promise<(NormalizedWeather | null)[]> {
   const params = [
     `latitude=${city.lat}`,
     `longitude=${city.lon}`,
@@ -528,8 +501,13 @@ async function fetchOpenMeteoForecast(city: City): Promise<NormalizedWeather[]> 
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Open-Meteo forecast ${res.status}`);
   const data = await res.json();
-  return [0, 1, 2].map((i) => normalizeOpenMeteoForecast(data, i));
+  return targetDates.map((date) => normalizeOpenMeteoForecast(data, date));
 }
+
+// === KST Timezone ===
+
+// Asia/Seoul UTC+9, 고정 오프셋, DST 없음. 한국 전용 시스템.
+export const KST_OFFSET_SEC = 9 * 60 * 60;
 
 // === Aggregation ===
 
@@ -540,7 +518,7 @@ const DEFAULT_WEIGHTS = {
   condition: { openmeteo: 0.00, openweather: 1.00, weatherapi: 0.00 },
 };
 
-function redistributeWeights(
+export function redistributeWeights(
   weights: Record<string, number>,
   failedProviders: Set<string>
 ): Record<string, number> {
@@ -560,7 +538,7 @@ function redistributeWeights(
   return result;
 }
 
-function weightedAvg(values: Array<{ v: number; w: number }>): number {
+export function weightedAvg(values: Array<{ v: number; w: number }>): number {
   const totalW = values.reduce((s, x) => s + x.w, 0);
   if (totalW === 0) return 0;
   return values.reduce((s, x) => s + x.v * x.w, 0) / totalW;
@@ -572,7 +550,7 @@ function stddev(values: number[]): number {
   return Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length);
 }
 
-function aggregateWeather(results: ProviderResult[]): AggregatedWeather {
+export function aggregateWeather(results: ProviderResult[]): AggregatedWeather {
   const successful = results.filter((r) => r.data !== null);
   const failed = results.filter((r) => r.data === null);
 
@@ -812,12 +790,18 @@ export async function handleWeatherForecast(
     return jsonResponse(cached.data, 200, corsHeaders);
   }
 
-  console.log(JSON.stringify({ msg: "Fetching forecast", cityId: city.id, lat: city.lat, lon: city.lon, days }));
+  // KST_OFFSET_SEC를 사용해 현재 KST 날짜 기준 targetDates 생성 (단일 상수, 두 곳에서 동일 경계 보장)
+  const numDays = Math.min(days, 3);
+  const targetDates = Array.from({ length: numDays }, (_, i) =>
+    new Date(Date.now() + KST_OFFSET_SEC * 1000 + i * 86400 * 1000).toISOString().split("T")[0] ?? ""
+  );
+
+  console.log(JSON.stringify({ msg: "Fetching forecast", cityId: city.id, lat: city.lat, lon: city.lon, days, targetDates }));
 
   const [owResult, waResult, omResult] = await Promise.allSettled([
-    fetchOpenWeatherForecast(city, env),
-    fetchWeatherAPIForecast(city, env),
-    fetchOpenMeteoForecast(city),
+    fetchOpenWeatherForecast(city, env, targetDates),
+    fetchWeatherAPIForecast(city, env, targetDates),
+    fetchOpenMeteoForecast(city, targetDates),
   ]);
 
   const failedProviders: string[] = [];
@@ -840,13 +824,8 @@ export async function handleWeatherForecast(
     );
   }
 
-  const numDays = Math.min(days ?? 3, 3);
-  const today = new Date();
-
   const forecastDays = Array.from({ length: numDays }, (_, i) => {
-    const date = new Date(today);
-    date.setDate(date.getDate() + i);
-    const dateStr = date.toISOString().split("T")[0] ?? "";
+    const dateStr = targetDates[i] ?? "";
 
     const perDayResults: ProviderResult[] = [
       { provider: "openweather", data: owDays?.[i] ?? null, error: owDays ? null : "failed" },
