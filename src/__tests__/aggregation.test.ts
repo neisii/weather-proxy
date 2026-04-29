@@ -90,10 +90,10 @@ describe("redistributeWeights", () => {
   });
 
   it("active의 weight 합이 0이면 균등 분배(1/N)한다", () => {
-    // openmeteo weight = 0.00 (humidity 기준), openweather 실패 시
+    // openmeteo weight = 0.00 (humidity 기준), openweather·weatherapi 실패 시
+    // active = [openmeteo], activeTotal = 0 → 1/1 = 1
     const weights = { openmeteo: 0.00, openweather: 0.30, weatherapi: 0.70 };
     const result = redistributeWeights(weights, new Set(["openweather", "weatherapi"]));
-    // active = [openmeteo], activeTotal = 0 → 1/1 = 1
     expect(result["openmeteo"]).toBeCloseTo(1);
   });
 });
