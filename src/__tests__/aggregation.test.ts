@@ -90,6 +90,8 @@ describe("redistributeWeights", () => {
   });
 
   it("active의 weight 합이 0이면 균등 분배(1/N)한다", () => {
+    // openmeteo weight = 0.00 (humidity 기준), openweather·weatherapi 실패 시
+    // active = [openmeteo], activeTotal = 0 → 1/1 = 1
     const weights = { openmeteo: 0.00, openweather: 0.30, weatherapi: 0.70 };
     const result = redistributeWeights(weights, new Set(["openweather", "weatherapi"]));
     expect(result["openmeteo"]).toBeCloseTo(1);
@@ -109,6 +111,7 @@ describe("aggregateWeather", () => {
     expect(agg.providers_used).toHaveLength(3);
     expect(agg.providers_failed).toHaveLength(0);
     expect(agg.incomplete_data).toBe(false);
+    // openweather 0.40·20 + weatherapi 0.15·18 + openmeteo 0.45·16 = 8 + 2.7 + 7.2 = 17.9
     expect(agg.weather.temp).toBeCloseTo(17.9);
   });
 
@@ -150,6 +153,7 @@ describe("aggregateWeather", () => {
       makeResult("openmeteo", { condition: "cloudy" }),
     ];
     const agg = aggregateWeather(results);
+    // condition weight: openmeteo 0→재분배, weatherapi 0→재분배, 동등이면 순서대로
     expect(["clear", "cloudy"]).toContain(agg.weather.condition);
   });
 
