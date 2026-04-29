@@ -112,6 +112,24 @@ interface ForecastResponseShape {
   cached_at: string | null;
 }
 
+interface ForecastDebugDayShape {
+  date: string;
+  weather: NormalizedWeather;
+  provider_data: Array<{
+    provider: ProviderId;
+    data: NormalizedWeather | null;
+    error: string | null;
+  }>;
+}
+
+interface ForecastDebugResponseShape {
+  days: ForecastDebugDayShape[];
+  providers_used: string[];
+  providers_failed: string[];
+  incomplete_data: boolean;
+  cached_at: string | null;
+}
+
 // === Normalization Maps ===
 
 const OW_ICON_MAP: Record<string, WeatherCondition> = {
@@ -755,42 +773,21 @@ export async function handleWeatherCurrent(
   return jsonResponse(aggregated, 200, corsHeaders);
 }
 
-export async function handleWeatherForecast(
-  url: URL,
-  env: Env,
-  corsHeaders: Record<string, string>,
-): Promise<Response> {
-  const cityIdRaw = url.searchParams.get("cityId");
-  if (!cityIdRaw) {
-    return apiError("invalid_params", "cityId is required", 400, corsHeaders);
-  }
-  if (!VALID_CITY_IDS.has(cityIdRaw as CityId)) {
-    return apiError("invalid_city", `지원하지 않는 도시: ${cityIdRaw}`, 400, corsHeaders);
-  }
+// === Forecast Core (shared by public + debug handlers) ===
 
-  const daysRaw = url.searchParams.get("days");
-  let days = 3;
-  if (daysRaw !== null) {
-    const parsed = Number(daysRaw);
-    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 3) {
-      return apiError("invalid_params", "days must be an integer between 1 and 3", 400, corsHeaders);
-    }
-    days = Math.floor(parsed);
-  }
+interface ForecastDayFull {
+  date: string;
+  weather: NormalizedWeather;
+  perDayResults: ProviderResult[];
+}
 
-  const city = getCityByName(cityIdRaw);
-  if (!city) {
-    return apiError("invalid_city", `지원하지 않는 도시: ${cityIdRaw}`, 400, corsHeaders);
-  }
+interface ForecastDataResult {
+  days: ForecastDayFull[];
+  successfulProviders: string[];
+  failedProviders: string[];
+}
 
-  const cacheKey = `${city.id}:${days}`;
-  const cached = forecastCache.get(cacheKey);
-  if (cached && isFresh(cached)) {
-    console.log(JSON.stringify({ msg: "Cache hit for forecast", cityId: city.id, days }));
-    return jsonResponse(cached.data, 200, corsHeaders);
-  }
-
-  // KST_OFFSET_SEC를 사용해 현재 KST 날짜 기준 targetDates 생성 (단일 상수, 두 곳에서 동일 경계 보장)
+async function buildForecastData(city: City, env: Env, days: number): Promise<ForecastDataResult> {
   const numDays = Math.min(days, 3);
   const targetDates = Array.from({ length: numDays }, (_, i) =>
     new Date(Date.now() + KST_OFFSET_SEC * 1000 + i * 86400 * 1000).toISOString().split("T")[0] ?? ""
@@ -815,22 +812,12 @@ export async function handleWeatherForecast(
   if (!waDays) failedProviders.push("weatherapi"); else successfulProviders.push("weatherapi");
   if (!omDays) failedProviders.push("openmeteo"); else successfulProviders.push("openmeteo");
 
-  if (successfulProviders.length === 0) {
-    return apiError(
-      "provider_unavailable",
-      "날씨 예보 제공자에 모두 연결할 수 없습니다.",
-      503,
-      corsHeaders,
-    );
-  }
-
-  const forecastDays = Array.from({ length: numDays }, (_, i) => {
-    const dateStr = targetDates[i] ?? "";
-
+  const days_ = Array.from({ length: numDays }, (_, i) => {
+    const date = targetDates[i] ?? "";
     const perDayResults: ProviderResult[] = [
       { provider: "openweather", data: owDays?.[i] ?? null, error: owDays ? null : "failed" },
-      { provider: "weatherapi", data: waDays?.[i] ?? null, error: waDays ? null : "failed" },
-      { provider: "openmeteo", data: omDays?.[i] ?? null, error: omDays ? null : "failed" },
+      { provider: "weatherapi",  data: waDays?.[i] ?? null, error: waDays ? null : "failed" },
+      { provider: "openmeteo",   data: omDays?.[i] ?? null, error: omDays ? null : "failed" },
     ];
 
     let aggregated: AggregatedWeather;
@@ -846,11 +833,60 @@ export async function handleWeatherForecast(
       };
     }
 
-    return { date: dateStr, weather: aggregated.weather };
+    return { date, weather: aggregated.weather, perDayResults };
   });
 
+  return { days: days_, successfulProviders, failedProviders };
+}
+
+function parseForecastParams(
+  url: URL,
+  corsHeaders: Record<string, string>,
+): { days: number; cityIdRaw: string } | Response {
+  const cityIdRaw = url.searchParams.get("cityId");
+  if (!cityIdRaw) return apiError("invalid_params", "cityId is required", 400, corsHeaders);
+  if (!VALID_CITY_IDS.has(cityIdRaw as CityId))
+    return apiError("invalid_city", `지원하지 않는 도시: ${cityIdRaw}`, 400, corsHeaders);
+
+  const daysRaw = url.searchParams.get("days");
+  let days = 3;
+  if (daysRaw !== null) {
+    const parsed = Number(daysRaw);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 3)
+      return apiError("invalid_params", "days must be an integer between 1 and 3", 400, corsHeaders);
+    days = Math.floor(parsed);
+  }
+  return { days, cityIdRaw };
+}
+
+export async function handleWeatherForecast(
+  url: URL,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const params = parseForecastParams(url, corsHeaders);
+  if (params instanceof Response) return params;
+  const { days, cityIdRaw } = params;
+
+  const city = getCityByName(cityIdRaw);
+  if (!city) return apiError("invalid_city", `지원하지 않는 도시: ${cityIdRaw}`, 400, corsHeaders);
+
+  const cacheKey = `${city.id}:${days}`;
+  const cached = forecastCache.get(cacheKey);
+  if (cached && isFresh(cached)) {
+    console.log(JSON.stringify({ msg: "Cache hit for forecast", cityId: city.id, days }));
+    return jsonResponse(cached.data, 200, corsHeaders);
+  }
+
+  const { days: forecastDays, successfulProviders, failedProviders } =
+    await buildForecastData(city, env, days);
+
+  if (successfulProviders.length === 0) {
+    return apiError("provider_unavailable", "날씨 예보 제공자에 모두 연결할 수 없습니다.", 503, corsHeaders);
+  }
+
   const responseData: ForecastResponseShape = {
-    days: forecastDays,
+    days: forecastDays.map(({ date, weather }) => ({ date, weather })),
     providers_used: successfulProviders,
     providers_failed: failedProviders,
     incomplete_data: successfulProviders.length < 3,
@@ -858,6 +894,43 @@ export async function handleWeatherForecast(
   };
 
   forecastCache.set(cacheKey, { data: responseData, expires_at: Date.now() + CACHE_TTL_MS });
+  return jsonResponse(responseData, 200, corsHeaders);
+}
+
+export async function handleWeatherForecastDebug(
+  url: URL,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const params = parseForecastParams(url, corsHeaders);
+  if (params instanceof Response) return params;
+  const { days, cityIdRaw } = params;
+
+  const city = getCityByName(cityIdRaw);
+  if (!city) return apiError("invalid_city", `지원하지 않는 도시: ${cityIdRaw}`, 400, corsHeaders);
+
+  const { days: forecastDays, successfulProviders, failedProviders } =
+    await buildForecastData(city, env, days);
+
+  if (successfulProviders.length === 0) {
+    return apiError("provider_unavailable", "날씨 예보 제공자에 모두 연결할 수 없습니다.", 503, corsHeaders);
+  }
+
+  const responseData: ForecastDebugResponseShape = {
+    days: forecastDays.map(({ date, weather, perDayResults }) => ({
+      date,
+      weather,
+      provider_data: perDayResults.map((r) => ({
+        provider: r.provider,
+        data: r.data,
+        error: r.error,
+      })),
+    })),
+    providers_used: successfulProviders,
+    providers_failed: failedProviders,
+    incomplete_data: successfulProviders.length < 3,
+    cached_at: new Date().toISOString(),
+  };
 
   return jsonResponse(responseData, 200, corsHeaders);
 }
