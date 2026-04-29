@@ -2,7 +2,7 @@ import { Env } from './types/env';
 import { handleOpenWeatherCurrent, handleOpenWeatherForecast } from './handlers/openweather';
 import { handleWeatherAPICurrent, handleWeatherAPIForecast } from './handlers/weatherapi';
 import { handleOpenMeteo } from './handlers/openmeteo';
-import { handleCities, handleWeatherCurrent, handleWeatherForecast } from './handlers/weather';
+import { handleCities, handleWeatherCurrent, handleWeatherForecast, handleWeatherForecastDebug } from './handlers/weather';
 import { handleHealth } from './handlers/health';
 import { handleOptions, getCorsHeaders } from './utils/cors';
 import { errorResponse } from './utils/errors';
@@ -55,6 +55,11 @@ export default {
       }
       if (path === '/api/weather/forecast') {
         return await handleWeatherForecast(url, env, corsHeaders);
+      }
+
+      // Auth-gated debug endpoints
+      if (path === '/api/weather/forecast/debug') {
+        return await handleWeatherForecastDebug(url, env, corsHeaders);
       }
 
       // Raw provider passthroughs (auth-gated)
