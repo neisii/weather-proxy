@@ -66,7 +66,7 @@ type WeatherCondition =
   | "haze"
   | "extreme";
 
-interface NormalizedWeather {
+export interface NormalizedWeather {
   temp: number;
   feels_like: number;
   temp_max: number;
@@ -84,13 +84,13 @@ interface NormalizedWeather {
 
 type ProviderId = "openweather" | "weatherapi" | "openmeteo";
 
-interface ProviderResult {
+export interface ProviderResult {
   provider: ProviderId;
   data: NormalizedWeather | null;
   error: string | null;
 }
 
-interface AggregatedWeather {
+export interface AggregatedWeather {
   weather: NormalizedWeather;
   confidence: { temp: number; wind: number; humidity: number; overall: number };
   providers_used: string[];
@@ -243,7 +243,7 @@ function normalizeOpenWeatherCurrent(raw: unknown): NormalizedWeather {
   };
 }
 
-function normalizeOpenWeatherForecast(raw: unknown, dayIndex: number): NormalizedWeather {
+export function normalizeOpenWeatherForecast(raw: unknown, dayIndex: number): NormalizedWeather {
   const r = raw as {
     list: Array<{
       dt: number;
@@ -332,7 +332,7 @@ function normalizeWeatherAPICurrent(raw: unknown): NormalizedWeather {
   };
 }
 
-function normalizeWeatherAPIForecast(raw: unknown, dayIndex: number): NormalizedWeather {
+export function normalizeWeatherAPIForecast(raw: unknown, dayIndex: number): NormalizedWeather {
   const r = raw as {
     forecast: {
       forecastday: Array<{
@@ -412,7 +412,7 @@ function normalizeOpenMeteoCurrent(raw: unknown): NormalizedWeather {
   };
 }
 
-function normalizeOpenMeteoForecast(raw: unknown, dayIndex: number): NormalizedWeather {
+export function normalizeOpenMeteoForecast(raw: unknown, dayIndex: number): NormalizedWeather {
   const r = raw as {
     daily: {
       time: string[];
@@ -540,7 +540,7 @@ const DEFAULT_WEIGHTS = {
   condition: { openmeteo: 0.00, openweather: 1.00, weatherapi: 0.00 },
 };
 
-function redistributeWeights(
+export function redistributeWeights(
   weights: Record<string, number>,
   failedProviders: Set<string>
 ): Record<string, number> {
@@ -560,7 +560,7 @@ function redistributeWeights(
   return result;
 }
 
-function weightedAvg(values: Array<{ v: number; w: number }>): number {
+export function weightedAvg(values: Array<{ v: number; w: number }>): number {
   const totalW = values.reduce((s, x) => s + x.w, 0);
   if (totalW === 0) return 0;
   return values.reduce((s, x) => s + x.v * x.w, 0) / totalW;
@@ -572,7 +572,7 @@ function stddev(values: number[]): number {
   return Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length);
 }
 
-function aggregateWeather(results: ProviderResult[]): AggregatedWeather {
+export function aggregateWeather(results: ProviderResult[]): AggregatedWeather {
   const successful = results.filter((r) => r.data !== null);
   const failed = results.filter((r) => r.data === null);
 
