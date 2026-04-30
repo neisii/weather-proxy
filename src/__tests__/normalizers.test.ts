@@ -275,6 +275,66 @@ describe("normalizeOpenMeteoForecast", () => {
   });
 });
 
+// ─── Range Validation (ADR 004) ───────────────────────────────────────────────
+
+describe("normalizeOpenWeatherForecast — 범위 이탈 값은 null 반환", () => {
+  it("temp가 범위 초과(9999)이면 null을 반환한다", () => {
+    const slots = [makeOwSlot({ dt: KST_APR29_START_UTC, temp: 9999 })];
+    expect(normalizeOpenWeatherForecast({ list: slots }, TARGET_DATE)).toBeNull();
+  });
+
+  it("temp가 범위 미만(-100)이면 null을 반환한다", () => {
+    const slots = [makeOwSlot({ dt: KST_APR29_START_UTC, temp: -100 })];
+    expect(normalizeOpenWeatherForecast({ list: slots }, TARGET_DATE)).toBeNull();
+  });
+
+  it("정상 범위 경계값(temp=-80)은 null이 아니다", () => {
+    const slots = [makeOwSlot({ dt: KST_APR29_START_UTC, temp: -80 })];
+    expect(normalizeOpenWeatherForecast({ list: slots }, TARGET_DATE)).not.toBeNull();
+  });
+
+  it("정상 범위 경계값(temp=60)은 null이 아니다", () => {
+    const slots = [makeOwSlot({ dt: KST_APR29_START_UTC, temp: 60 })];
+    expect(normalizeOpenWeatherForecast({ list: slots }, TARGET_DATE)).not.toBeNull();
+  });
+});
+
+describe("normalizeWeatherAPIForecast — 범위 이탈 값은 null 반환", () => {
+  it("humidity가 범위 초과(150)이면 null을 반환한다", () => {
+    const raw = makeWaRaw(1);
+    raw.forecast.forecastday[0]!.day.avghumidity = 150;
+    expect(normalizeWeatherAPIForecast(raw, TARGET_DATE)).toBeNull();
+  });
+
+  it("wind_speed가 범위 미만(-5 kph → -1.39 m/s)이면 null을 반환한다", () => {
+    const raw = makeWaRaw(1);
+    raw.forecast.forecastday[0]!.day.maxwind_kph = -18; // -5 m/s
+    expect(normalizeWeatherAPIForecast(raw, TARGET_DATE)).toBeNull();
+  });
+
+  it("정상값은 null이 아니다", () => {
+    expect(normalizeWeatherAPIForecast(makeWaRaw(1), TARGET_DATE)).not.toBeNull();
+  });
+});
+
+describe("normalizeOpenMeteoForecast — 범위 이탈 값은 null 반환", () => {
+  it("temp_max가 범위 초과(9999)이면 null을 반환한다", () => {
+    const raw = makeOmRaw(1);
+    raw.daily.temperature_2m_max[0] = 9999;
+    expect(normalizeOpenMeteoForecast(raw, TARGET_DATE)).toBeNull();
+  });
+
+  it("precip_mm가 범위 초과(600)이면 null을 반환한다", () => {
+    const raw = makeOmRaw(1);
+    raw.daily.precipitation_sum[0] = 600;
+    expect(normalizeOpenMeteoForecast(raw, TARGET_DATE)).toBeNull();
+  });
+
+  it("정상값은 null이 아니다", () => {
+    expect(normalizeOpenMeteoForecast(makeOmRaw(1), TARGET_DATE)).not.toBeNull();
+  });
+});
+
 // ─── Issue #8 Acceptance Criteria ────────────────────────────────────────────
 
 describe("KST_OFFSET_SEC — normalizer와 builder 날짜 경계 일치 (issue #8)", () => {

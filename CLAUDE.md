@@ -87,6 +87,14 @@ if (dayItems.length === 0) return null;  // 기본값 객체 반환 금지
 **3. 모든 날짜 계산은 KST 기준**
 `targetDate`는 `YYYY-MM-DD` KST 문자열. `new Date().toISOString()` 직접 사용 금지 — UTC 날짜를 반환한다.
 
+**4. Normalizer는 물리적 범위 이탈 값을 차단한다**
+```typescript
+// forecast: return null → weight 재분배
+// current:  throw       → Promise.allSettled가 data: null 처리
+if (!isNormalizedWeatherValid(result)) return null;
+```
+이상값(temp=9999 등)을 clamp하거나 집계에 포함하지 않는다. 검증 범위는 `FIELD_RANGES` 상수(단일 소스). → [ADR 004](docs/decisions/004-normalizer-range-validation.md)
+
 ---
 
 ## 알려진 기존 타입 에러
@@ -103,8 +111,8 @@ src/handlers/weatherapi.ts(59,9):  error TS18046
 
 ## 미결 항목
 
-- [ ] `FORECAST_CACHE_TTL_MS` 30분으로 상향 (`CACHE_TTL_MS` 단일 상수 분리)
-- [ ] normalizer 값 범위 검증 (`temp`, `humidity`, `wind_speed` 물리적 범위)
+- [x] `FORECAST_CACHE_TTL_MS` 30분으로 상향 (`CACHE_TTL_MS` 단일 상수 분리)
+- [x] normalizer 값 범위 검증 (`temp`, `humidity`, `wind_speed` 물리적 범위) → ADR 004
 
 ---
 
