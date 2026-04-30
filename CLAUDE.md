@@ -116,6 +116,27 @@ src/handlers/weatherapi.ts(59,9):  error TS18046
 
 ---
 
+## 작업 규칙
+
+- "Commit and Push" 명령에는 PR 생성도 포함된다.
+
+---
+
+## 인증 키 사용 맥락
+
+`PROXY_API_KEY`(`X-API-Key` 헤더)는 아래 엔드포인트에만 필요하다. 클라이언트 앱(cycling-advisor.onrender.com)은 이 엔드포인트를 호출하지 않으며, **개발자가 직접 provider 원본 응답을 확인할 때만 쓰인다.**
+
+| 엔드포인트 | 용도 |
+|---|---|
+| `/api/weather/forecast/debug` | per-provider raw 집계 데이터 확인 (디버그) |
+| `/api/openweather/current`, `/api/openweather/forecast` | OpenWeather 원본 응답 passthrough |
+| `/api/weatherapi/current`, `/api/weatherapi/forecast` | WeatherAPI 원본 응답 passthrough |
+| `/api/openmeteo` | Open-Meteo 원본 응답 passthrough |
+
+인증 게이트 구현: `src/index.ts:38–42`
+
+---
+
 ## 설계 문서
 
 | 파일 | 내용 |
