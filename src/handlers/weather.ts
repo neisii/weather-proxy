@@ -706,7 +706,8 @@ interface CacheEntry<T> {
 const currentCache = new Map<string, CacheEntry<AggregatedWeather>>();
 const forecastCache = new Map<string, CacheEntry<ForecastResponseShape>>();
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CURRENT_CACHE_TTL_MS = 5 * 60 * 1000;
+const FORECAST_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function isFresh<T>(entry: CacheEntry<T>): boolean {
   return Date.now() < entry.expires_at;
@@ -809,7 +810,7 @@ export async function handleWeatherCurrent(
     );
   }
 
-  currentCache.set(cacheKey, { data: aggregated, expires_at: Date.now() + CACHE_TTL_MS });
+  currentCache.set(cacheKey, { data: aggregated, expires_at: Date.now() + CURRENT_CACHE_TTL_MS });
 
   return jsonResponse(aggregated, 200, corsHeaders);
 }
@@ -934,7 +935,7 @@ export async function handleWeatherForecast(
     cached_at: new Date().toISOString(),
   };
 
-  forecastCache.set(cacheKey, { data: responseData, expires_at: Date.now() + CACHE_TTL_MS });
+  forecastCache.set(cacheKey, { data: responseData, expires_at: Date.now() + FORECAST_CACHE_TTL_MS });
   return jsonResponse(responseData, 200, corsHeaders);
 }
 
