@@ -231,6 +231,35 @@ const WA_CODE_MAP: Record<number, WeatherCondition> = {
   1282: "thunderstorm",
 };
 
+// === Normalizer Range Validation ===
+
+const FIELD_RANGES = {
+  temp:       { min: -80,  max: 60   },
+  humidity:   { min: 0,    max: 100  },
+  wind_speed: { min: 0,    max: 120  },
+  pressure:   { min: 870,  max: 1085 },
+  precip_mm:  { min: 0,    max: 500  },
+  uv_index:   { min: 0,    max: 20   },
+} as const;
+
+function inRange(value: number, field: keyof typeof FIELD_RANGES): boolean {
+  const { min, max } = FIELD_RANGES[field];
+  return value >= min && value <= max;
+}
+
+function isNormalizedWeatherValid(w: NormalizedWeather): boolean {
+  return (
+    inRange(w.temp, "temp") &&
+    inRange(w.temp_max, "temp") &&
+    inRange(w.temp_min, "temp") &&
+    inRange(w.humidity, "humidity") &&
+    inRange(w.wind_speed, "wind_speed") &&
+    inRange(w.pressure, "pressure") &&
+    inRange(w.precip_mm, "precip_mm") &&
+    (w.uv_index === null || inRange(w.uv_index, "uv_index"))
+  );
+}
+
 // === Normalizers ===
 
 function normalizeOpenWeatherCurrent(raw: unknown): NormalizedWeather {
@@ -244,7 +273,7 @@ function normalizeOpenWeatherCurrent(raw: unknown): NormalizedWeather {
   };
   const icon = r.weather[0]?.icon ?? "";
   const condition: WeatherCondition = OW_ICON_MAP[icon] ?? "cloudy";
-  return {
+  const result: NormalizedWeather = {
     temp: r.main.temp,
     feels_like: r.main.feels_like,
     temp_max: r.main.temp_max,
@@ -259,6 +288,8 @@ function normalizeOpenWeatherCurrent(raw: unknown): NormalizedWeather {
     uv_index: r.uvi ?? null,
     visibility: r.visibility ?? null,
   };
+  if (!isNormalizedWeatherValid(result)) throw new Error(`RangeValidationError: OpenWeather current data out of range`);
+  return result;
 }
 
 export function normalizeOpenWeatherForecast(raw: unknown, targetDate: string): NormalizedWeather | null {
@@ -283,7 +314,7 @@ export function normalizeOpenWeatherForecast(raw: unknown, targetDate: string): 
   const icon = mainItem?.weather[0]?.icon ?? "";
   const maxPop = Math.max(...dayItems.map((i) => (i.pop ?? 0) * 100));
   const totalRain = dayItems.reduce((sum, i) => sum + (i.rain?.["3h"] ?? 0), 0);
-  return {
+  const result: NormalizedWeather = {
     temp: temps.reduce((a, b) => a + b, 0) / temps.length,
     feels_like: mainItem?.main.feels_like ?? temps[0] ?? 20,
     temp_max: Math.max(...dayItems.map((i) => i.main.temp_max)),
@@ -298,6 +329,8 @@ export function normalizeOpenWeatherForecast(raw: unknown, targetDate: string): 
     uv_index: null,
     visibility: null,
   };
+  if (!isNormalizedWeatherValid(result)) return null;
+  return result;
 }
 
 function normalizeWeatherAPICurrent(raw: unknown): NormalizedWeather {
@@ -317,7 +350,7 @@ function normalizeWeatherAPICurrent(raw: unknown): NormalizedWeather {
   };
   const code = r.current.condition.code;
   const condition: WeatherCondition = WA_CODE_MAP[code] ?? "cloudy";
-  return {
+  const result: NormalizedWeather = {
     temp: r.current.temp_c,
     feels_like: r.current.feelslike_c,
     temp_max: r.current.temp_c,
@@ -332,6 +365,8 @@ function normalizeWeatherAPICurrent(raw: unknown): NormalizedWeather {
     uv_index: r.current.uv,
     visibility: r.current.vis_km * 1000,
   };
+  if (!isNormalizedWeatherValid(result)) throw new Error(`RangeValidationError: WeatherAPI current data out of range`);
+  return result;
 }
 
 export function normalizeWeatherAPIForecast(raw: unknown, targetDate: string): NormalizedWeather | null {
@@ -357,7 +392,7 @@ export function normalizeWeatherAPIForecast(raw: unknown, targetDate: string): N
   const day = r.forecast.forecastday.find((d) => d.date === targetDate);
   if (!day) return null;
   const code = day.day.condition.code;
-  return {
+  const result: NormalizedWeather = {
     temp: day.day.avgtemp_c,
     feels_like: day.day.avgtemp_c,
     temp_max: day.day.maxtemp_c,
@@ -372,6 +407,8 @@ export function normalizeWeatherAPIForecast(raw: unknown, targetDate: string): N
     uv_index: day.day.uv,
     visibility: day.day.avgvis_km * 1000,
   };
+  if (!isNormalizedWeatherValid(result)) return null;
+  return result;
 }
 
 function normalizeOpenMeteoCurrent(raw: unknown): NormalizedWeather {
@@ -392,7 +429,7 @@ function normalizeOpenMeteoCurrent(raw: unknown): NormalizedWeather {
   const wmo = r.current.weather_code;
   const condition: WeatherCondition = WMO_MAP[wmo] ?? "cloudy";
   const temp = r.current.temperature_2m;
-  return {
+  const result: NormalizedWeather = {
     temp,
     feels_like: r.current.apparent_temperature ?? temp,
     temp_max: temp,
@@ -407,6 +444,8 @@ function normalizeOpenMeteoCurrent(raw: unknown): NormalizedWeather {
     uv_index: r.current.uv_index ?? null,
     visibility: r.current.visibility ?? null,
   };
+  if (!isNormalizedWeatherValid(result)) throw new Error(`RangeValidationError: Open-Meteo current data out of range`);
+  return result;
 }
 
 export function normalizeOpenMeteoForecast(raw: unknown, targetDate: string): NormalizedWeather | null {
@@ -430,7 +469,7 @@ export function normalizeOpenMeteoForecast(raw: unknown, targetDate: string): No
   const tmax = d.temperature_2m_max[i] ?? 20;
   const tmin = d.temperature_2m_min[i] ?? 15;
   const wmo = d.weather_code[i] ?? 0;
-  return {
+  const result: NormalizedWeather = {
     temp: (tmax + tmin) / 2,
     feels_like: d.apparent_temperature_max?.[i] ?? (tmax + tmin) / 2,
     temp_max: tmax,
@@ -445,6 +484,8 @@ export function normalizeOpenMeteoForecast(raw: unknown, targetDate: string): No
     uv_index: d.uv_index_max?.[i] ?? null,
     visibility: null,
   };
+  if (!isNormalizedWeatherValid(result)) return null;
+  return result;
 }
 
 // === Upstream Fetchers (direct to providers, no internal HTTP hop) ===
@@ -665,7 +706,8 @@ interface CacheEntry<T> {
 const currentCache = new Map<string, CacheEntry<AggregatedWeather>>();
 const forecastCache = new Map<string, CacheEntry<ForecastResponseShape>>();
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CURRENT_CACHE_TTL_MS = 5 * 60 * 1000;
+const FORECAST_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function isFresh<T>(entry: CacheEntry<T>): boolean {
   return Date.now() < entry.expires_at;
@@ -768,7 +810,7 @@ export async function handleWeatherCurrent(
     );
   }
 
-  currentCache.set(cacheKey, { data: aggregated, expires_at: Date.now() + CACHE_TTL_MS });
+  currentCache.set(cacheKey, { data: aggregated, expires_at: Date.now() + CURRENT_CACHE_TTL_MS });
 
   return jsonResponse(aggregated, 200, corsHeaders);
 }
@@ -893,7 +935,7 @@ export async function handleWeatherForecast(
     cached_at: new Date().toISOString(),
   };
 
-  forecastCache.set(cacheKey, { data: responseData, expires_at: Date.now() + CACHE_TTL_MS });
+  forecastCache.set(cacheKey, { data: responseData, expires_at: Date.now() + FORECAST_CACHE_TTL_MS });
   return jsonResponse(responseData, 200, corsHeaders);
 }
 
